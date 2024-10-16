@@ -1,7 +1,7 @@
 import express from 'express';
 import { roomApi } from '../controllers/room.controller.js';
 import { roomMiddleware } from '../middlewares/room.middleware.js';
-import { wrapRequestHandler } from '../utils/handlers.util.js';
+import { wrapRequestHandler } from '../utils/handler.util.js';
 
 const router = express.Router();
 // tạo mới room
