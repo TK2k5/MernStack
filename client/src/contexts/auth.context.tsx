@@ -1,12 +1,14 @@
 import { createContext, useContext, useState } from 'react';
 
+import { getAccessTokenFromLS } from '@/utils/auth.util';
+
 interface AuthContextState {
 	isAuthenticated: boolean; // check xem đã đăng nhập hay chưa
 	setIsAuthenticated: (isAuthenticated: boolean) => void; // set trạng thái đăng nhập
 }
 
 const intialAuthContext: AuthContextState = {
-	isAuthenticated: false,
+	isAuthenticated: !!getAccessTokenFromLS(),
 	setIsAuthenticated: () => {},
 };
 

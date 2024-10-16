@@ -1,22 +1,25 @@
-import { SchemaType, schema } from '@/utils/rules.util';
 import { Eye, EyeOff } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { SchemaType, schema } from '@/utils/rules.util';
 
-import authApi from '@/api/auth.api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import authApi from '@/api/auth.api';
 import path from '@/configs/path.config';
-import { yupResolver } from '@hookform/resolvers/yup';
+import { useAuth } from '@/contexts/auth.context';
+import { useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { Link } from 'react-router-dom';
+import { yupResolver } from '@hookform/resolvers/yup';
 
 type LoginFormType = Pick<SchemaType, 'email' | 'password'>;
 const loginSchema = schema.pick(['email', 'password']);
 
 export default function LoginPage() {
+	const navigate = useNavigate();
+	const { setIsAuthenticated } = useAuth();
 	const [showPassword, setShowPassword] = useState(false);
 
 	const {
@@ -32,10 +35,12 @@ export default function LoginPage() {
 		mutationKey: ['login'],
 		mutationFn: (body: LoginFormType) => authApi.login(body),
 		onSuccess: (data) => {
-			console.log('🚀 ~ LoginPage ~ data:', data);
+			setIsAuthenticated(true);
+			navigate(path.home);
 		},
 		onError: (error) => {
-			console.log('🚀 ~ LoginPage ~ error:', error);
+			setIsAuthenticated(false);
+			navigate(path.login);
 		},
 	});
 

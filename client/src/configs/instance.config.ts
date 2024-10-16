@@ -1,7 +1,11 @@
-import { getAccessTokenFromLS, setAccessTokenToLS } from '@/utils/auth.util';
-import axios, { AxiosInstance } from 'axios';
-
 import { AuthResponse } from '@/types/auth.type';
+import {
+	getAccessTokenFromLS,
+	removeAccessTokenFromLS,
+	setAccessTokenToLS,
+} from '@/utils/auth.util';
+import axios, { AxiosInstance } from 'axios';
+import { toast } from 'sonner';
 import path from './path.config';
 
 class Http {
@@ -21,9 +25,15 @@ class Http {
 		// add request interceptors
 		this.instance.interceptors.request.use(
 			(response) => {
+				if (this.accessToken) {
+					const token = this.accessToken;
+					response.headers.Authorization = `Bearer ${token}`;
+					return response;
+				}
 				return response;
 			},
 			(error) => {
+				console.log(error);
 				return Promise.reject(error);
 			}
 		);
@@ -31,7 +41,6 @@ class Http {
 		// add response interceptor
 		this.instance.interceptors.response.use(
 			(response) => {
-				console.log('🚀 ~ Http ~ constructor ~ response:', response);
 				const { url } = response.config;
 				if (url === path.login) {
 					const data = response.data as AuthResponse;
@@ -41,6 +50,13 @@ class Http {
 				return response;
 			},
 			(error) => {
+				// console.log(error);
+				if (!error.response.data.success) {
+					const message = error.response.data.message || error.message;
+					toast(message);
+					this.accessToken = '';
+					removeAccessTokenFromLS();
+				}
 				return Promise.reject(error);
 			}
 		);

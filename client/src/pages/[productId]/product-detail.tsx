@@ -2,11 +2,30 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChevronRight, CreditCard, ShoppingCart, Star } from 'lucide-react';
 
+import { productApi } from '@/api/product.api';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import path from '@/configs/path.config';
+import { formatCurrency } from '@/utils/format-currency.util';
+import { getProductIdFromQueryString } from '@/utils/utils';
+import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 
 const ProductDetail = () => {
+	const { productId } = useParams();
+	const productIdFromQueryString = getProductIdFromQueryString(
+		productId as string
+	);
+
+	const { data } = useQuery({
+		queryKey: ['product-detail'],
+		queryFn: () => productApi.getProductById(productIdFromQueryString),
+		enabled: !!productIdFromQueryString,
+	});
+	const product = data?.data;
+	console.log(product);
+
 	const [mainImage, setMainImage] = useState('https://picsum.photos/536/354');
 	const [selectedColor, setSelectedColor] = useState('black');
 	const [selectedSize, setSelectedSize] = useState('m');
@@ -53,20 +72,26 @@ const ProductDetail = () => {
 		},
 	];
 
+	if (!product) return <div>Loading...</div>;
+
+	const discount = Math.round(
+		100 - ((product.price - product.sale) * 100) / product.price
+	);
+
 	return (
 		<div className="flex flex-col h-full">
 			<nav className="py-2 bg-gray-100">
 				<div className="container px-4 mx-auto">
 					<div className="flex items-center space-x-2 text-sm text-gray-600">
-						<a href="#" className="hover:text-gray-900">
+						<Link to={path.home} className="hover:text-gray-900">
 							Home
-						</a>
+						</Link>
 						<ChevronRight className="w-4 h-4" />
-						<a href="#" className="hover:text-gray-900">
-							Products
-						</a>
+						<p className="hover:text-gray-900">Products</p>
 						<ChevronRight className="w-4 h-4" />
-						<span className="text-gray-900">Product Name</span>
+						<span className="text-gray-900 font-medium">
+							{product.nameProduct}
+						</span>
 					</div>
 				</div>
 			</nav>
@@ -96,7 +121,14 @@ const ProductDetail = () => {
 						</div>
 					</div>
 					<div className="space-y-6">
-						<h1 className="text-3xl font-bold">Product Name</h1>
+						<h1 className="text-3xl font-medium flex items-center gap-4">
+							{product?.nameProduct}{' '}
+							{discount > 0 && (
+								<span className="text-xs rounded-lg px-3 py-1 bg-primary text-white">
+									-{discount}%
+								</span>
+							)}
+						</h1>
 						<div className="flex items-center space-x-2">
 							<div className="flex">
 								{[...Array(5)].map((_, i) => (
@@ -109,7 +141,19 @@ const ProductDetail = () => {
 							</div>
 							<span className="text-gray-600">(120 reviews)</span>
 						</div>
-						<p className="text-2xl font-bold">$129.99</p>
+						<div className="flex items-center gap-4">
+							<span className="text-2xl font-bold">
+								{product?.sale
+									? formatCurrency(product?.price - product?.sale)
+									: formatCurrency(product?.price)}
+								đ
+							</span>
+							{product.sale > 0 && (
+								<span className="text-sm text-gray-500 line-through">
+									{formatCurrency(product.price)}đ
+								</span>
+							)}
+						</div>
 
 						<div className="space-y-4">
 							<div>
@@ -119,19 +163,19 @@ const ProductDetail = () => {
 									onValueChange={setSelectedColor}
 									className="flex space-x-2"
 								>
-									{colors.map((color) => (
-										<div key={color.value}>
+									{product.sizes.map((color) => (
+										<div key={color._id}>
 											<RadioGroupItem
-												value={color.value}
-												id={`color-${color.value}`}
+												value={color._id}
+												id={`color-${color._id}`}
 												className="sr-only peer"
 											/>
 											<Label
-												htmlFor={`color-${color.value}`}
+												htmlFor={`color-${color._id}`}
 												className="flex items-center justify-center w-8 h-8 bg-white border-2 border-gray-200 rounded-full cursor-pointer peer-checked:border-blue-500"
-												style={{ backgroundColor: color.value }}
+												style={{ backgroundColor: color.color }}
 											>
-												<span className="sr-only">{color.name}</span>
+												<span className="sr-only">{color.size}</span>
 											</Label>
 										</div>
 									))}
@@ -145,18 +189,18 @@ const ProductDetail = () => {
 									onValueChange={setSelectedSize}
 									className="flex space-x-2"
 								>
-									{sizes.map((size) => (
-										<div key={size}>
+									{product.sizes.map((size) => (
+										<div key={size._id}>
 											<RadioGroupItem
-												value={size}
-												id={`size-${size}`}
+												value={size._id}
+												id={`size-${size._id}`}
 												className="sr-only peer"
 											/>
 											<Label
-												htmlFor={`size-${size}`}
+												htmlFor={`size-${size._id}`}
 												className="flex items-center justify-center w-10 h-10 bg-white border-2 border-gray-200 rounded-md cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-50"
 											>
-												{size.toUpperCase()}
+												{size.size}
 											</Label>
 										</div>
 									))}
