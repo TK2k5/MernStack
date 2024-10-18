@@ -53,6 +53,21 @@ export const optionProduct = (params) => {
     };
   }
 
+  // filter category
+  if (rest.category) {
+    query = {
+      ...query,
+      category: rest.category,
+    };
+  }
+  // filter brand
+  if (rest.brand) {
+    query = {
+      ...query,
+      brand: rest.brand,
+    };
+  }
+
   const options = {
     limit: parseInt(_limit),
     page: parseInt(_page),
@@ -352,11 +367,9 @@ export const updateManyProduct = async (req, res) => {
       .json({ message: 'Update many failed', success: false, status: HTTP_STATUS.BAD_REQUEST });
   }
 
-  return res
-    .status(HTTP_STATUS.OK)
-    .json({
-      message: deleted ? 'Restore product success!' : 'Update many successfully',
-      success: true,
-      status: HTTP_STATUS.OK,
-    });
+  return res.status(HTTP_STATUS.OK).json({
+    message: deleted ? 'Restore product success!' : 'Update many successfully',
+    success: true,
+    status: HTTP_STATUS.OK,
+  });
 };
