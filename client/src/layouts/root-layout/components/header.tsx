@@ -1,109 +1,199 @@
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Search, ShoppingCart } from 'lucide-react';
+import { Minus, Plus } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useEffect, useMemo, useState } from "react";
 
-import { userApi } from '@/api/user.api';
-import { Button } from '@/components/ui/button';
-import path from '@/configs/path.config';
-import { useAuth } from '@/contexts/auth.context';
-import { removeAccessTokenFromLS } from '@/utils/auth.util';
-import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { TSize } from "@/types/product.type";
+import { cn } from "@/lib/utils";
 
-const HeaderLayout = () => {
-	const { isAuthenticated, setIsAuthenticated } = useAuth();
+interface ProductControllerProps {
+  variants: TSize[];
+  onVariantSelect: (variant: TSize | null, quantity: number) => void;
+}
 
-	const { data, isLoading, isError, error } = useQuery({
-		queryKey: ['me'],
-		queryFn: () => userApi.getProfile(),
-		retry: false,
-		enabled: isAuthenticated,
-	});
-	const myInfo = data?.data;
+const ProductController = ({
+  variants,
+  onVariantSelect,
+}: ProductControllerProps) => {
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState<number>(1);
 
-	// logout
-	const handleLogout = () => {
-		removeAccessTokenFromLS();
-		setIsAuthenticated(false);
-	};
+  // get unique size
+  const uniqueSizes = useMemo(() => {
+    const sizes = new Set(variants.map((varian) => varian.size));
+    const result = Array.from(sizes).map((size) => {
+      return {
+        size: size,
+        _id: variants?.find((variant) => variant.size === size)?._id ?? "",
+      };
+    });
+    return result;
+  }, [variants]);
 
-	return (
-		<header className="bg-white shadow-md sticky top-0 right-0 left-0 z-50">
-			<div className="container flex items-center justify-between px-4 py-4 mx-auto">
-				<div className="flex items-center space-x-4">
-					<h2>Logo</h2>
-					<div className="relative">
-						<input
-							type="text"
-							placeholder="Tìm kiếm sản phẩm..."
-							className="w-64 py-2 pl-10 pr-4 border rounded-full"
-						/>
-						<Search className="absolute text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
-					</div>
-				</div>
-				<div className="flex items-center space-x-4">
-					<Button variant="ghost" size="icon">
-						<ShoppingCart className="w-6 h-6" />
-					</Button>
+  // get unique color
+  const uniqueColors = useMemo(() => {
+    if (selectedSize) {
+      //logic
+      const colors = variants.filter(
+        (variant) => variant.size === selectedSize
+      );
+      return colors;
+    } else {
+      const colors = new Set(variants.map((varian) => varian.color));
+      const result = Array.from(colors).map((color) => {
+        return {
+          color: color,
+          _id: variants?.find((variant) => variant.color === color)?._id ?? "",
+        };
+      });
+      return result;
+    }
+  }, [variants, selectedSize]);
 
-					{isAuthenticated ? (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button
-									variant={'ghost'}
-									className="bg-transparent hover:bg-transparent"
-								>
-									<img
-										className="rounded-full !h-8 !w-8"
-										src="https://picsum.photos/536/354"
-										alt="Avatar"
-									/>
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent
-								className="w-56 bg-white border shadow-md"
-								align="end"
-							>
-								<DropdownMenuLabel className="font-normal">
-									<div className="flex flex-col justify-start space-y-1">
-										<p className="text-sm font-medium leading-none text-left">
-											{myInfo?.email}
-										</p>
-										<p className="text-xs leading-none text-left text-muted-foreground">
-											{myInfo?.email}
-										</p>
-									</div>
-								</DropdownMenuLabel>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem>
-									<Link to={path.profile}>Hồ sơ</Link>
-								</DropdownMenuItem>
-								<DropdownMenuItem>
-									<Button
-										variant={'ghost'}
-										className="justify-start w-full p-0 text-left h-fit hover:bg-transparent"
-										onClick={handleLogout}
-									>
-										Đăng xuất
-									</Button>
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					) : (
-						<Link to={path.login} className="text-sm font-medium">
-							Đăng nhập
-						</Link>
-					)}
-				</div>
-			</div>
-		</header>
-	);
+  // get selectd varian
+  const selectedVariant = useMemo(() => {
+    if (selectedColor && selectedSize) {
+      return variants.find(
+        (variant) =>
+          variant.size === selectedSize && variant._id === selectedColor
+      );
+    }
+  }, [selectedColor, selectedSize, variants]);
+
+  // handle size change
+  const handleSizeChange = (size: string) => {
+    setSelectedSize(size);
+    setSelectedColor(null);
+  };
+
+  // handle color change
+  const handleColorChange = (color: string) => {
+    setSelectedColor(color);
+  };
+
+  // handle quantity
+  const handleChangeQuantity = (value: number) => {
+    if (selectedVariant) {
+      setQuantity(Math.max(1, Math.min(value, selectedVariant.quantity)));
+    }
+  };
+
+  useEffect(() => {
+    if (selectedVariant !== undefined) {
+      onVariantSelect(selectedVariant, quantity);
+    }
+  }, [selectedVariant, onVariantSelect, quantity]);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="mb-2 text-lg font-semibold">Size</h3>
+        <RadioGroup
+          value={selectedSize ?? ""}
+          onValueChange={handleSizeChange}
+          className="flex space-x-2"
+        >
+          {uniqueSizes?.map((size) => (
+            <div key={size._id}>
+              <RadioGroupItem
+                value={size.size}
+                id={`size-${size._id}`}
+                className="sr-only peer"
+              />
+              <Label
+                htmlFor={`size-${size._id}`}
+                className={cn(
+                  "flex items-center justify-center w-10 h-10 bg-white border-2 border-gray-200 rounded-md cursor-pointer peer-checked:border-blue-500 peer-checked:bg-blue-50",
+                  {
+                    "border-2 border-blue-500": selectedSize === size.size,
+                  }
+                )}
+              >
+                {size.size}
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-lg font-semibold">Color</h3>
+        <RadioGroup
+          value={selectedColor ?? ""}
+          onValueChange={handleColorChange}
+          className="flex space-x-2"
+        >
+          {uniqueColors.map((color) => (
+            <div key={color._id}>
+              <RadioGroupItem
+                value={color._id}
+                id={`color-${color._id}`}
+                className="sr-only peer"
+              />
+              <Label
+                htmlFor={`color-${color._id}`}
+                className={cn(
+                  "flex items-center justify-center w-8 h-8 bg-white border-2 border-gray-200 rounded-full cursor-pointer peer-checked:border-blue-500",
+                  { "border-blue-500": selectedColor === color._id }
+                )}
+                style={{ backgroundColor: color.color }}
+              >
+                <span className="sr-only">{color.color}</span>
+              </Label>
+            </div>
+          ))}
+        </RadioGroup>
+      </div>
+
+      {selectedVariant && (
+        <div className="mt-4">
+          <h3 className="text-lg font-medium">Selected Variant</h3>
+          <p>Size: {selectedVariant.size}</p>
+          <p>Color: {selectedVariant.color}</p>
+          <p className="">Quantity: {selectedVariant.quantity}</p>
+
+          <div className="">
+            <h4 className="mb-2 text-sm font-medium">Quantity</h4>
+
+            <div className="flex items-center space-x-2">
+              {/* handle click decrease quantity */}
+              <Button
+                variant={"outline"}
+                size={"icon"}
+                onClick={() => handleChangeQuantity(quantity - 1)}
+                disabled={quantity === 1}
+              >
+                <Minus className="size-4" />
+              </Button>
+              {/* handle input change quantity */}
+              <Input
+                type="number"
+                value={quantity}
+                className="w-20 text-center"
+                min={1}
+                onChange={(e) =>
+                  handleChangeQuantity(parseInt(e.target.value, 10))
+                }
+                max={selectedVariant.quantity}
+              />
+              {/* handle click increase quantity */}
+              <Button
+                variant={"outline"}
+                size={"icon"}
+                onClick={() => handleChangeQuantity(quantity + 1)}
+                disabled={quantity === selectedVariant.quantity}
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
-export default HeaderLayout;
+export default ProductController;

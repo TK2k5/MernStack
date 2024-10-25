@@ -1,31 +1,57 @@
 import { ChevronRight, CreditCard, ShoppingCart, Star } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import ProductController from "./components/product-controller";
+import { TAddToCart } from "@/types/cart.type";
+import { TSize } from "@/types/product.type";
+import { cartApi } from "@/api/cart.api";
 import { formatCurrency } from "@/utils/format-currency.util";
 import { getProductIdFromQueryString } from "@/utils/utils";
 import path from "@/configs/path.config";
 import { productApi } from "@/api/product.api";
-import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { useState } from "react";
+import { userApi } from "@/api/user.api";
 
 const ProductDetail = () => {
+  const queryClient = useQueryClient();
   const { productId } = useParams();
   const productIdFromQueryString = getProductIdFromQueryString(
     productId as string
   );
 
+  // get product detail
   const { data } = useQuery({
     queryKey: ["product-detail"],
     queryFn: () => productApi.getProductById(productIdFromQueryString),
     enabled: !!productIdFromQueryString,
   });
   const product = data?.data;
+  // get user id
+  const { data: userData } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => userApi.getProfile(),
+    retry: false,
+  });
+  const myInfo = userData?.data;
+  // create add to cart
+  const addToCartMutation = useMutation({
+    mutationKey: ["add-to-cart"],
+    mutationFn: (body: TAddToCart) => cartApi.addToCart(body),
+    onSuccess: () => {
+      toast.success("Add to cart success!");
+      queryClient.invalidateQueries({ queryKey: ["carts"] });
+    },
+    onError: () => {
+      toast.error("Add to cart faild!");
+    },
+  });
 
-  // const [mainImage, setMainImage] = useState("https://picsum.photos/536/354");
-  // const [selectedColor, setSelectedColor] = useState("black");
-  // const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<TSize | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
 
   const relatedProducts = [
     {
@@ -53,6 +79,26 @@ const ProductDetail = () => {
       image: "/placeholder.svg?height=200&width=200",
     },
   ];
+
+  const handleVariantSelect = (variant: TSize | null, quantity: number) => {
+    setSelectedVariant(variant);
+    setSelectedQuantity(quantity);
+  };
+
+  const handleAddToCart = () => {
+    if (selectedVariant) {
+      const data = {
+        userId: myInfo?._id as string,
+        productId: productIdFromQueryString,
+        color: selectedVariant.color,
+        size: selectedVariant.size,
+        quantity: selectedQuantity,
+      };
+      addToCartMutation.mutate(data);
+    } else {
+      toast.warning("Please select a size, color and quantity");
+    }
+  };
 
   if (!product) return <div>Loading...</div>;
 
@@ -124,10 +170,13 @@ const ProductDetail = () => {
               )}
             </div>
 
-            <ProductController variants={product.sizes} />
+            <ProductController
+              variants={product.sizes}
+              onVariantSelect={handleVariantSelect}
+            />
 
             <div className="flex space-x-4">
-              <Button className="flex-1">
+              <Button className="flex-1" onClick={() => handleAddToCart()}>
                 <ShoppingCart className="w-4 h-4 mr-2" /> Add to Cart
               </Button>
               <Button variant="secondary" className="flex-1">
