@@ -60,4 +60,5 @@ export type TQueryParams = {
   deleted?: string;
   category?: string;
   brand?: string;
+  is_deleted?: boolean;
 };

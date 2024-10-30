@@ -3,8 +3,11 @@
 @tailwind utilities;
 
 @layer base {
-	:root {
-		--radius: 0.5rem;
-		--primary: #0766ff;
-	}
+  :root {
+    --radius: 0.5rem;
+    --primary: #0766ff;
+  }
+}
+.lucide {
+  stroke-width: 1px;
 }
