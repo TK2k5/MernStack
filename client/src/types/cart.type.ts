@@ -18,6 +18,8 @@ export type Cart = {
     | "status"
     | "images"
     | "is_deleted"
+    | "category"
+    | "brand"
   >;
   quantity: number;
   color: string;
@@ -32,4 +34,10 @@ export type TListCart = {
   total: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type TUpdateQuantityInCart = {
+  userId: string;
+  productId: string;
+  productIdInCart: string;
 };

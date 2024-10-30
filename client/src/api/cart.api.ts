@@ -1,6 +1,10 @@
-import { TAddToCart, TListCart } from "@/types/cart.type";
+import {
+  TAddToCart,
+  TListCart,
+  TUpdateQuantityInCart,
+} from "@/types/cart.type";
+import { TQueryParams, TResponseDetail } from "@/types/common.type";
 
-import { TResponseDetail } from "@/types/common.type";
 import http from "@/configs/instance.config";
 
 export const cartApi = {
@@ -15,6 +19,17 @@ export const cartApi = {
   // get all cart
   getAllCarts: async () => {
     const response = await http.get<TResponseDetail<TListCart>>(`cart`);
+    return response.data;
+  },
+
+  // update quantity in cart
+  updateQuantityInCart: async (
+    body: TUpdateQuantityInCart,
+    params: TQueryParams
+  ) => {
+    const response = await http.patch(`/cart`, body, {
+      params,
+    });
     return response.data;
   },
 };

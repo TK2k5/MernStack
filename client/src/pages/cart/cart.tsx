@@ -1,18 +1,26 @@
+import { Cart as CartType, TUpdateQuantityInCart } from "@/types/cart.type";
 import { ChevronRight, Minus, Plus, X } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { Cart as CartType } from "@/types/cart.type";
-import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cartApi } from "@/api/cart.api";
 import { formatCurrency } from "@/utils/format-currency.util";
+import { omit } from "lodash";
 import path from "@/configs/path.config";
-import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { userApi } from "@/api/user.api";
 
 const Cart = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { data } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => userApi.getProfile(),
+  });
+  const myInfo = data?.data;
 
   // get all cars
   const { data: responseCarts } = useQuery({
@@ -43,6 +51,37 @@ const Cart = () => {
   // );
   // const tax = subtotal * 0.1; // Assuming 10% tax
   // const total = subtotal + tax;
+
+  const updateQuatityMutation = useMutation({
+    mutationKey: ["update-quantity"],
+    mutationFn: (
+      body: TUpdateQuantityInCart & { status: "increase" | "decrease" }
+    ) =>
+      cartApi.updateQuantityInCart(omit(body, ["status"]), {
+        status: body.status,
+      }),
+  });
+
+  const handleUpdateQuantity = (
+    productId: string,
+    productIdInCart: string,
+    type: "increase" | "decrease"
+  ) => {
+    if (!myInfo) return;
+    const body: TUpdateQuantityInCart & { status: "increase" | "decrease" } = {
+      userId: myInfo._id,
+      productId,
+      productIdInCart,
+      status: type,
+    };
+    console.log("🚀 ~ handleUpdateQuantity ~ body:", body);
+    updateQuatityMutation.mutate(body, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["carts"] });
+        toast.success(body.status === "increase" ? "Increase" : "Decrease");
+      },
+    });
+  };
 
   useEffect(() => {
     if (carts) {
@@ -83,6 +122,15 @@ const Cart = () => {
                   <h3 className="font-semibold">
                     {item?.productId?.nameProduct}
                   </h3>
+                  <p className="">Size: {item?.size}</p>
+                  <div className="flex items-center gap-3">
+                    <span className="">Color: </span>
+                    <button
+                      type="button"
+                      className={"size-6 rounded-full border"}
+                      style={{ backgroundColor: item.color }}
+                    ></button>
+                  </div>
                   <p className="text-gray-600">
                     {formatCurrency(item?.productId?.price)}đ
                   </p>
@@ -93,23 +141,38 @@ const Cart = () => {
                     size="icon"
                     // onClick={() => updateQuantity(item.id, item.quantity - 1)}
                     aria-label="Giảm số lượng"
+                    onClick={() =>
+                      handleUpdateQuantity(
+                        item.productId._id,
+                        item._id,
+                        "decrease"
+                      )
+                    }
                   >
                     <Minus className="w-4 h-4" />
                   </Button>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    // onChange={(e) =>
-                    // 	updateQuantity(item.id, parseInt(e.target.value))
-                    // }
-                    className="w-16 mx-2 text-center"
-                  />
+                  {/* <Input
+										type="number"
+										min="1"
+										value={item.quantity}
+										// onChange={(e) =>
+										// 	updateQuantity(item.id, parseInt(e.target.value))
+										// }
+										className="w-16 mx-2 text-center"
+									/> */}
+                  <div className="w-16 mx-2 text-center">{item.quantity}</div>
                   <Button
                     variant="outline"
                     size="icon"
                     // onClick={() => updateQuantity(item.id, item.quantity + 1)}
                     aria-label="Tăng số lượng"
+                    onClick={() =>
+                      handleUpdateQuantity(
+                        item.productId._id,
+                        item._id,
+                        "increase"
+                      )
+                    }
                   >
                     <Plus className="w-4 h-4" />
                   </Button>

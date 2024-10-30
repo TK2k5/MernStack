@@ -10,7 +10,7 @@ export const orderService = {
   // get Orders By User Id
   getOrdersByUserId: async (userId) => {
     return await Order.find({ userId }).populate([
-      { path: 'products.productId', select: '_id nameProduct desc images' },
+      { path: 'products.productId', select: '_id nameProduct desc images category brand' },
       { path: 'userId', select: '_id email' },
       { path: 'assignee' },
     ]);
