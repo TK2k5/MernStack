@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Search, ShoppingCart } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -16,13 +15,13 @@ import { cartApi } from "@/api/cart.api";
 import path from "@/configs/path.config";
 import { removeAccessTokenFromLS } from "@/utils/auth.util";
 import { useAuth } from "@/contexts/auth.context";
-import { useQuery } from "@tanstack/react-query";
 import { userApi } from "@/api/user.api";
 
 const HeaderLayout = () => {
   const { isAuthenticated, setIsAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data } = useQuery({
     queryKey: ["me"],
     queryFn: () => userApi.getProfile(),
     retry: false,
@@ -33,11 +32,14 @@ const HeaderLayout = () => {
   const { data: responseCarts } = useQuery({
     queryKey: ["carts"],
     queryFn: () => cartApi.getAllCarts(),
+    enabled: isAuthenticated,
+    retry: 2,
   });
   const carts = responseCarts?.data;
 
   // logout
   const handleLogout = () => {
+    queryClient.removeQueries({ queryKey: ["carts"] });
     removeAccessTokenFromLS();
     setIsAuthenticated(false);
   };
