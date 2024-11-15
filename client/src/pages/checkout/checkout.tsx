@@ -1,27 +1,35 @@
 import { ChevronLeft, CreditCard } from "lucide-react";
 import FormUser, { FormUserType, formUserSchema } from "./components/form-user";
+import { Link, createSearchParams, useNavigate } from "react-router-dom";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
+import DialogOrder from "./components/dialog-order";
 import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
 import ListVoucher from "./components/list-voucher";
 import { RootState } from "@/stores/store";
 import { Separator } from "@/components/ui/separator";
+import { TCreateOrder } from "@/types/order.type";
 import { TVoucher } from "@/types/voucher.type";
 import { caculatorDistance } from "@/utils/geolocation";
+import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/utils/format-currency.util";
+import { orderApi } from "@/api/order.api";
 import path from "@/configs/path.config";
 import { toast } from "sonner";
 import { useAppSelector } from "@/stores/hooks";
 import { useForm } from "react-hook-form";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryParams } from "@/hooks/useQueryParams";
 import { userApi } from "@/api/user.api";
 import { yupResolver } from "@hookform/resolvers/yup";
 
 const FEE_SHIPPING = 3000;
 
 const Checkout = () => {
+  const { status } = useQueryParams();
+  const navigate = useNavigate();
+
   const form = useForm<FormUserType>({
     resolver: yupResolver(formUserSchema),
     defaultValues: {
@@ -41,6 +49,7 @@ const Checkout = () => {
   const [voucherId, setVoucherId] = useState<string>("");
 
   const { carts: cartItems } = useAppSelector((state: RootState) => state.cart);
+  console.log("🚀 ~ Checkout ~ cartItems:", cartItems);
 
   // tính tổng tiền các sản phẩm có checked là true
   const totalCheckedPurchase = useMemo(() => {
@@ -83,6 +92,12 @@ const Checkout = () => {
   });
   const myInfo = data?.data;
 
+  // khai báo api create order
+  const createOrderMutation = useMutation({
+    mutationKey: ["create-order"],
+    mutationFn: (body: TCreateOrder) => orderApi.createOrder(body),
+  });
+
   // handle submit form user
   const onSubmit = (values: FormUserType) => {
     const data = {
@@ -106,100 +121,138 @@ const Checkout = () => {
       },
       priceShipping: distanceShipping * FEE_SHIPPING,
       voucher: voucherId,
-    };
+    } as TCreateOrder;
     console.log(data);
+
+    // call api
+    createOrderMutation.mutate(data, {
+      onSuccess: (data) => {
+        console.log("🚀 ~ onSubmit ~ data:", data);
+        toast.success("Create order success!");
+        navigate({
+          pathname: path.checkout,
+          search: createSearchParams({
+            status: "true",
+          }).toString(),
+        });
+      },
+      onError: () => {
+        toast.error("Create order failed!");
+      },
+    });
   };
 
   return (
-    <div className="w-full min-h-screen bg-gray-100">
-      <div className="container px-4 py-8 mx-auto">
-        <Link to={path.cart} className="mb-6 flex items-center gap-1">
-          <ChevronLeft className="w-4 h-4 mr-2" />
-          Quay lại giỏ hàng
-        </Link>
-        <h1 className="mb-8 text-3xl font-bold">Thanh toán</h1>
-        <div className="grid gap-8 md:grid-cols-3">
-          <div className="space-y-6 md:col-span-2">
-            <FormUser form={form} onSubmit={onSubmit} />
+    <>
+      <DialogOrder open={Boolean(status)} onClose={() => {}} />
 
-            <div className="p-6 bg-white rounded-lg shadow">
-              <h2 className="mb-4 text-xl font-semibold">
-                Phương thức thanh toán
-              </h2>
-              <RadioGroup
-                value={paymentMethod}
-                onValueChange={setPaymentMethod}
-              >
-                <div className="flex items-center mb-2 space-x-2">
-                  <RadioGroupItem value="cod" id="cod" />
-                  <Label htmlFor="cod">Cod</Label>
-                </div>
-                <div className="flex items-center mb-2 space-x-2">
-                  <RadioGroupItem disabled={true} value="paypal" id="paypal" />
-                  <Label htmlFor="paypal">PayPal</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem
-                    disabled={true}
-                    value="bank-transfer"
-                    id="bank-transfer"
-                  />
-                  <Label htmlFor="bank-transfer">Chuyển khoản ngân hàng</Label>
-                </div>
-              </RadioGroup>
-            </div>
-          </div>
-          <div className="space-y-6 h-full">
-            <div className="p-6 bg-white rounded-lg shadow">
-              <h2 className="mb-4 text-xl font-semibold">Tóm tắt đơn hàng</h2>
-              <div className="space-y-4">
-                {cartItems &&
-                  cartItems.length > 0 &&
-                  cartItems.map((item) => (
-                    <div key={item._id} className="flex justify-between gap-6">
-                      <span>
-                        {item?.productId?.nameProduct} x {item.quantity}
-                      </span>
-                      <span>
-                        {formatCurrency(item?.productId?.price * item.quantity)}
-                      </span>
-                    </div>
-                  ))}
-                <Separator />
-                <div className="flex justify-between">
-                  <span>Tạm tính</span>
-                  <span>{formatCurrency(totalCheckedPurchase || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Mã giảm giá</span>
-                  <span>{formatCurrency(voucherPrice || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Phí vận chuyển</span>
-                  <span>{formatCurrency(moneyShipping)}</span>
-                </div>
+      <div className="w-full min-h-screen bg-gray-100">
+        <div className="container px-4 py-8 mx-auto">
+          <Link to={path.cart} className="mb-6 flex items-center gap-1">
+            <ChevronLeft className="w-4 h-4 mr-2" />
+            Quay lại giỏ hàng
+          </Link>
+          <h1 className="mb-8 text-3xl font-bold">Thanh toán</h1>
+          <div className="grid gap-8 md:grid-cols-3">
+            <div className="space-y-6 md:col-span-2">
+              <FormUser form={form} onSubmit={onSubmit} />
 
-                <Separator />
-                <div className="flex justify-between font-semibold">
-                  <span>Tổng cộng</span>
-                  <span>{formatCurrency(totalMoney - voucherPrice)}</span>
-                </div>
+              <div className="p-6 bg-white rounded-lg shadow">
+                <h2 className="mb-4 text-xl font-semibold">
+                  Phương thức thanh toán
+                </h2>
+                <RadioGroup
+                  value={paymentMethod}
+                  onValueChange={setPaymentMethod}
+                >
+                  <div className="flex items-center mb-2 space-x-2">
+                    <RadioGroupItem value="cod" id="cod" />
+                    <Label htmlFor="cod">Cod</Label>
+                  </div>
+                  <div className="flex items-center mb-2 space-x-2">
+                    <RadioGroupItem
+                      disabled={true}
+                      value="paypal"
+                      id="paypal"
+                    />
+                    <Label htmlFor="paypal">PayPal</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem
+                      disabled={true}
+                      value="bank-transfer"
+                      id="bank-transfer"
+                    />
+                    <Label htmlFor="bank-transfer">
+                      Chuyển khoản ngân hàng
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
-              <Label
-                htmlFor="submit-form"
-                className="w-full mt-6 h-9 flex items-center bg-blue-500 text-white gap-2 cursor-pointer justify-center rounded-md"
-              >
-                <CreditCard className="w-4 h-4 mr-2" />
-                Thanh toán {formatCurrency(totalMoney - voucherPrice)}
-              </Label>
             </div>
+            <div className="space-y-6 h-full">
+              <div className="p-6 bg-white rounded-lg shadow">
+                <h2 className="mb-4 text-xl font-semibold">Tóm tắt đơn hàng</h2>
+                <div className="space-y-4">
+                  {cartItems &&
+                    cartItems.length > 0 &&
+                    cartItems.map((item) => (
+                      <div
+                        key={item._id}
+                        className="flex justify-between gap-6"
+                      >
+                        <span>
+                          {item?.productId?.nameProduct} x {item.quantity}
+                        </span>
+                        <span>
+                          {formatCurrency(
+                            item?.productId?.price * item.quantity
+                          )}
+                        </span>
+                      </div>
+                    ))}
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span>Tạm tính</span>
+                    <span>{formatCurrency(totalCheckedPurchase || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Mã giảm giá</span>
+                    <span>{formatCurrency(voucherPrice || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Phí vận chuyển</span>
+                    <span>{formatCurrency(moneyShipping)}</span>
+                  </div>
 
-            {/* voucher */}
-            <ListVoucher onSelectedVoucher={handleSelectedVoucher} />
+                  <Separator />
+                  <div className="flex justify-between font-semibold">
+                    <span>Tổng cộng</span>
+                    <span>{formatCurrency(totalMoney - voucherPrice)}</span>
+                  </div>
+                </div>
+                <Label
+                  htmlFor="submit-form"
+                  className={cn(
+                    "w-full mt-6 h-9 flex items-center bg-blue-500 text-white gap-2 cursor-pointer justify-center rounded-md",
+                    {
+                      "select-none cursor-not-allowed":
+                        createOrderMutation.isPending,
+                    }
+                  )}
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Thanh toán {formatCurrency(totalMoney - voucherPrice)}
+                </Label>
+              </div>
+
+              {/* voucher */}
+              <ListVoucher onSelectedVoucher={handleSelectedVoucher} />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
