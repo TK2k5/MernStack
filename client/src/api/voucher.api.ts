@@ -6,7 +6,7 @@ import http from "@/configs/instance.config";
 export const voucherApi = {
   getVouchers: async (params: TQueryParams) => {
     const response = await http.get<TResponseNoPagination<TVoucher>>(
-      "/vouchers",
+      "/voucher",
       { params }
     );
     return response.data;

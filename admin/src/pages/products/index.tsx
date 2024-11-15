@@ -11,6 +11,7 @@ import { TProduct } from '@/types/product.type'
 import { TResponse } from '@/types/common.type'
 import { Tabs } from 'antd'
 import type { TabsProps } from 'antd'
+import _ from 'lodash'
 import { getProducts } from '@/apis/product.api'
 import { useAuth } from '@/contexts/auth-context'
 import { useQuery } from '@tanstack/react-query'
@@ -25,12 +26,6 @@ const ProductPage = () => {
 
   const [products, setProducts] = useState<TProduct[]>([])
   const navigate = useNavigate()
-
-  const [paginate, setPaginate] = useState({
-    _page: 1,
-    _limit: 10,
-    totalPages: 1
-  })
 
   const { currentModal, onCloseModal, onOpenModal } = useToggleModal<TProduct>()
 
@@ -47,6 +42,7 @@ const ProductPage = () => {
   }, [isSuccess, data])
 
   const [inputValue, setInputValue] = useState<string>('')
+
   const handleSearch = (value: string) => {
     setInputValue(value)
     navigate({
@@ -97,6 +93,7 @@ const ProductPage = () => {
         })
         break
       case '4':
+        // eslint-disable-next-line no-case-declarations
         const newQueryParams = _.omit(queryParams, 'status')
         navigate({
           pathname: '/products',
@@ -121,10 +118,12 @@ const ProductPage = () => {
         break
     }
   }
+
   useEffect(() => {
     if (queryParams.q) {
       setInputValue(queryParams.q)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (isError) {
