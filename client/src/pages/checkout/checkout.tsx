@@ -1,40 +1,114 @@
 import { ChevronLeft, CreditCard } from "lucide-react";
+import FormUser, { FormUserType, formUserSchema } from "./components/form-user";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
 import ListVoucher from "./components/list-voucher";
 import { RootState } from "@/stores/store";
 import { Separator } from "@/components/ui/separator";
+import { TVoucher } from "@/types/voucher.type";
+import { caculatorDistance } from "@/utils/geolocation";
 import { formatCurrency } from "@/utils/format-currency.util";
 import path from "@/configs/path.config";
+import { toast } from "sonner";
 import { useAppSelector } from "@/stores/hooks";
-import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
+import { userApi } from "@/api/user.api";
+import { yupResolver } from "@hookform/resolvers/yup";
+
+const FEE_SHIPPING = 3000;
 
 const Checkout = () => {
-  const [paymentMethod, setPaymentMethod] = useState("credit-card");
+  const form = useForm<FormUserType>({
+    resolver: yupResolver(formUserSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      address: "",
+      note: "",
+    },
+  });
+
+  /// IIFE: Immediately Invoked Function Expression
+  const [paymentMethod, setPaymentMethod] = useState<string>("cod");
+  const [distanceShipping, setDistanceShipping] = useState<number>(0);
+  const [voucherPrice, setVoucherPrice] = useState<number>(0);
+  const [voucherId, setVoucherId] = useState<string>("");
 
   const { carts: cartItems } = useAppSelector((state: RootState) => state.cart);
 
-  // const subtotal = cartItems.reduce(
-  // 	(sum, item) => sum + item.price * item.quantity,
-  // 	0
-  // );
-  // const shipping = 10;
-  // const tax = subtotal * 0.1;
-  // const total = subtotal + shipping + tax;
+  // tính tổng tiền các sản phẩm có checked là true
+  const totalCheckedPurchase = useMemo(() => {
+    const totalProductChecked = cartItems?.reduce((total, purchase) => {
+      return total + purchase.quantity * purchase.productId.price;
+    }, 0);
+    return totalProductChecked;
+  }, [cartItems]);
 
-  // const { geolocation, error } = useGetGeoLocation();
-  // console.log("🚀 ~ Checkout ~ error:", error);
+  useEffect(() => {
+    (async () => {
+      try {
+        const distance = await caculatorDistance();
+        setDistanceShipping(Math.round(Number(distance.toFixed(1))));
+      } catch (error) {
+        console.log("🚀 ~ error:", error);
+      }
+    })();
+  }, []);
+
+  // giá tiền phí vận chuyển
+  const moneyShipping = distanceShipping * FEE_SHIPPING;
+  const totalMoney = totalCheckedPurchase + moneyShipping;
+
+  const handleSelectedVoucher = (voucher: TVoucher) => {
+    if (totalCheckedPurchase <= voucher.applicablePrice) {
+      toast.warning("Đơn hàng chưa đủ điều kiện!");
+      return;
+    }
+    toast.success("Chọn mã giảm giá thành công!");
+    setVoucherPrice(voucher.voucherPrice);
+    setVoucherId(voucher._id);
+  };
+
+  // get me info
+  const { data } = useQuery({
+    queryKey: ["me"],
+    queryFn: () => userApi.getProfile(),
+    retry: false,
+  });
+  const myInfo = data?.data;
+
+  // handle submit form user
+  const onSubmit = (values: FormUserType) => {
+    const data = {
+      userId: myInfo?._id,
+      status: "pending",
+      note: values.note,
+      paymentMethod: paymentMethod,
+      total: totalMoney - voucherPrice,
+      products: cartItems.map((purchase) => ({
+        productId: purchase.productId._id,
+        quantity: purchase.quantity,
+        size: purchase.size,
+        color: purchase.color,
+        price: purchase.productId.price,
+      })),
+      infoOrderShipping: {
+        name: `${values.firstName} ${values.lastName}`,
+        phone: values.phone,
+        address: values.address,
+        email: values.email,
+      },
+      priceShipping: distanceShipping * FEE_SHIPPING,
+      voucher: voucherId,
+    };
+    console.log(data);
+  };
 
   return (
     <div className="w-full min-h-screen bg-gray-100">
@@ -46,62 +120,8 @@ const Checkout = () => {
         <h1 className="mb-8 text-3xl font-bold">Thanh toán</h1>
         <div className="grid gap-8 md:grid-cols-3">
           <div className="space-y-6 md:col-span-2">
-            <div className="p-6 bg-white rounded-lg shadow">
-              <h2 className="mb-4 text-xl font-semibold">
-                Thông tin giao hàng
-              </h2>
-              <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">Họ</Label>
-                    <Input id="firstName" placeholder="Nhập họ" />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Tên</Label>
-                    <Input id="lastName" placeholder="Nhập tên" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Số điện thoại</Label>
-                  <Input id="phone" type="tel" placeholder="0123456789" />
-                </div>
-                <div>
-                  <Label htmlFor="address">Địa chỉ</Label>
-                  <Input id="address" placeholder="Số nhà, tên đường" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="city">Thành phố</Label>
-                    <Input id="city" placeholder="Thành phố" />
-                  </div>
-                  <div>
-                    <Label htmlFor="postalCode">Mã bưu điện</Label>
-                    <Input id="postalCode" placeholder="Mã bưu điện" />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="country">Quốc gia</Label>
-                  <Select>
-                    <SelectTrigger id="country">
-                      <SelectValue placeholder="Chọn quốc gia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="vn">Việt Nam</SelectItem>
-                      <SelectItem value="us">United States</SelectItem>
-                      <SelectItem value="uk">United Kingdom</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
+            <FormUser form={form} onSubmit={onSubmit} />
+
             <div className="p-6 bg-white rounded-lg shadow">
               <h2 className="mb-4 text-xl font-semibold">
                 Phương thức thanh toán
@@ -111,36 +131,22 @@ const Checkout = () => {
                 onValueChange={setPaymentMethod}
               >
                 <div className="flex items-center mb-2 space-x-2">
-                  <RadioGroupItem value="credit-card" id="credit-card" />
-                  <Label htmlFor="credit-card">Thẻ tín dụng</Label>
+                  <RadioGroupItem value="cod" id="cod" />
+                  <Label htmlFor="cod">Cod</Label>
                 </div>
                 <div className="flex items-center mb-2 space-x-2">
-                  <RadioGroupItem value="paypal" id="paypal" />
+                  <RadioGroupItem disabled={true} value="paypal" id="paypal" />
                   <Label htmlFor="paypal">PayPal</Label>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="bank-transfer" id="bank-transfer" />
+                  <RadioGroupItem
+                    disabled={true}
+                    value="bank-transfer"
+                    id="bank-transfer"
+                  />
                   <Label htmlFor="bank-transfer">Chuyển khoản ngân hàng</Label>
                 </div>
               </RadioGroup>
-              {paymentMethod === "credit-card" && (
-                <div className="mt-4 space-y-4">
-                  <div>
-                    <Label htmlFor="cardNumber">Số thẻ</Label>
-                    <Input id="cardNumber" placeholder="1234 5678 9012 3456" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="expiryDate">Ngày hết hạn</Label>
-                      <Input id="expiryDate" placeholder="MM/YY" />
-                    </div>
-                    <div>
-                      <Label htmlFor="cvv">CVV</Label>
-                      <Input id="cvv" placeholder="123" />
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
           <div className="space-y-6 h-full">
@@ -156,34 +162,40 @@ const Checkout = () => {
                       </span>
                       <span>
                         {formatCurrency(item?.productId?.price * item.quantity)}
-                        vnđ
                       </span>
                     </div>
                   ))}
                 <Separator />
                 <div className="flex justify-between">
                   <span>Tạm tính</span>
-                  <span>{formatCurrency(10000)}</span>
+                  <span>{formatCurrency(totalCheckedPurchase || 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Mã giảm giá</span>
+                  <span>{formatCurrency(voucherPrice || 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Phí vận chuyển</span>
-                  <span>{formatCurrency(10000)}</span>
+                  <span>{formatCurrency(moneyShipping)}</span>
                 </div>
 
                 <Separator />
                 <div className="flex justify-between font-semibold">
                   <span>Tổng cộng</span>
-                  <span>{formatCurrency(10000)}</span>
+                  <span>{formatCurrency(totalMoney - voucherPrice)}</span>
                 </div>
               </div>
-              <Button className="w-full mt-6">
+              <Label
+                htmlFor="submit-form"
+                className="w-full mt-6 h-9 flex items-center bg-blue-500 text-white gap-2 cursor-pointer justify-center rounded-md"
+              >
                 <CreditCard className="w-4 h-4 mr-2" />
-                Thanh toán {formatCurrency(10000)}
-              </Button>
+                Thanh toán {formatCurrency(totalMoney - voucherPrice)}
+              </Label>
             </div>
 
             {/* voucher */}
-            <ListVoucher />
+            <ListVoucher onSelectedVoucher={handleSelectedVoucher} />
           </div>
         </div>
       </div>

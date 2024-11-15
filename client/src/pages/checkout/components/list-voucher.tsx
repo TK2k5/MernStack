@@ -8,12 +8,17 @@ import {
 } from "@/components/ui/card";
 
 import { Button } from "@/components/ui/button";
+import { TVoucher } from "@/types/voucher.type";
 import dayjs from "dayjs";
 import { formatCurrency } from "@/utils/format-currency.util";
 import { useQuery } from "@tanstack/react-query";
 import { voucherApi } from "@/api/voucher.api";
 
-const ListVoucher = () => {
+type ListVoucherProps = {
+  onSelectedVoucher: (voucher: TVoucher) => void;
+};
+
+const ListVoucher = ({ onSelectedVoucher }: ListVoucherProps) => {
   // call api voucher
   const { data: responseVouchers } = useQuery({
     queryKey: ["voucher"],
@@ -21,9 +26,11 @@ const ListVoucher = () => {
       voucherApi.getVouchers({ status: "active", is_deleted: false }),
   });
   const vouchers = responseVouchers?.data;
+
   return (
     <div className="p-6 bg-white rounded-lg shadow">
       <h2 className="mb-4 text-xl font-semibold">Mã giảm giá</h2>
+
       <div className="space-y-4 h-[380px] overflow-y-scroll scrollbar-hide">
         {vouchers &&
           vouchers.length > 0 &&
@@ -32,6 +39,7 @@ const ListVoucher = () => {
               <Card
                 className="cursor-pointer hover:shadow-md hover:bg-gray-100"
                 key={voucher._id}
+                onClick={() => onSelectedVoucher(voucher)}
               >
                 <CardHeader className="pb-0 flex-row justify-between">
                   <CardTitle className="font-medium text-base">
@@ -63,4 +71,5 @@ const ListVoucher = () => {
     </div>
   );
 };
+
 export default ListVoucher;
