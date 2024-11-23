@@ -111,12 +111,12 @@ export const orderController = {
   // get order by id
   getOrdersByUserId: async (req, res) => {
     const { _id } = req.user;
-    const { userId } = req.params;
+    // const { userId } = req.params;
 
     // check userId có trùng nhau hay không
-    if (_id !== userId) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'No Permission!', success: false });
-    }
+    // if (_id !== userId) {
+    //   return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'No Permission!', success: false });
+    // }
 
     // lấy danh sách đơn hàng theo userId
     const orders = await orderService.getOrdersByUserId(_id);

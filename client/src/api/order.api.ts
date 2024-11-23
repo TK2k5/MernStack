@@ -1,4 +1,6 @@
-import { TCreateOrder } from "@/types/order.type";
+import { TCreateOrder, TOrder } from "@/types/order.type";
+
+import { TResponseNoPagination } from "@/types/common.type";
 import http from "@/configs/instance.config";
 
 export const orderApi = {
@@ -8,6 +10,11 @@ export const orderApi = {
       `/order`,
       body
     );
+    return response.data;
+  },
+  // get orders by userId
+  getOrder: async () => {
+    const response = await http.get<TResponseNoPagination<TOrder>>(`/order`);
     return response.data;
   },
 };
