@@ -20,15 +20,15 @@ export const orderController = {
       }
     }
     let query = {};
-    if (q) {
-      query = {
-        $and: [
-          {
-            $or: [{ nameProduct: { $regex: new RegExp(q), $options: 'i' } }],
-          },
-        ],
-      };
-    }
+    // if (q) {
+    //   query = {
+    //     $and: [
+    //       {
+    //         $or: [{ nameProduct: { $regex: new RegExp(q), $options: 'i' } }],
+    //       },
+    //     ],
+    //   };
+    // }
     // filter status
     if (rest.status) {
       query = {
@@ -44,50 +44,57 @@ export const orderController = {
     };
     return { option, query };
   },
-
   // create order
   createOrder: async (req, res) => {
     const { _id } = req.user;
 
     // check userId có trùng nhau hay không
     if (_id !== req.body.userId) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Unauthorized!', success: false });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Bạn không đặt được đơn hàng này!', success: false });
     }
 
+    // check xem nếu có voucher thì giảm số lượng của voucher đi 1 và trừ đi số tiền của voucher đó
     if (req.body.voucher) {
-      // check voucher is existing
-      const voucher = await voucherService.getVoucherById(req.body.voucher);
+      // kiểm tra xem voucher có tồn tại không
+      const voucher = await voucherService.findVoucherById(req.body.voucher);
       if (!voucher) {
-        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Voucher is not existing!', success: false });
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ message: 'Voucher không tồn tại, Đặt hàng thất bại!', success: false });
       }
 
-      // check voucher is expired
+      // kiểm tra xem voucher có còn hạn không
       const now = dayjs();
       if (now.isAfter(voucher.endDate)) {
-        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Voucher is expired!', success: false });
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ message: 'Voucher đã hết hạn, Đặt hàng thất bại!', success: false });
       }
 
-      // check voucher discount
+      // kiểm tra xem voucher có còn số lượng không
       if (voucher.discount <= 0) {
-        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Voucher discount is invalid!', success: false });
+        return res
+          .status(HTTP_STATUS.BAD_REQUEST)
+          .json({ message: 'Voucher đã hết số lượng, Đặt hàng thất bại!', success: false });
       }
 
-      // decrease voucher quantity
+      // trừ đi số lượng của voucher
       const updateVoucher = await voucherService.updateVoucher(req.body.voucher, { discount: voucher.discount - 1 });
 
       if (!updateVoucher) {
-        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Voucher is invalid!', success: false });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Đặt hàng thất bại!', success: false });
       }
+
+      // trừ đi số tiền của voucher
+      req.body.total = req.body.total - voucher.voucherPrice;
     }
 
     // thêm mới đơn hàng
     const newOrder = await orderService.createOrder(req.body);
 
     if (!newOrder) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Create category faild!', success: false });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Đặt hàng thất bại!', success: false });
     }
-
-    // check voucher
 
     // trừ đi số lượng sản phẩm trong kho
     newOrder.products.forEach(async (product) => {
@@ -98,34 +105,36 @@ export const orderController = {
       if (productSize) {
         const newQuantity = productSize.quantity - product.quantity;
         // cập nhật lại số lượng sản phẩm
-        const result = await productService.updateProduct(product.productId, productSize._id, newQuantity);
+        const result = await productService.updateQuantityProduct(product.productId, productSize._id, newQuantity);
         if (!result) {
           return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Đặt hàng thất bại!', success: false });
         }
       }
     });
 
-    return res.status(HTTP_STATUS.CREATED).json({ message: 'Create category success!', success: true });
+    return res.status(HTTP_STATUS.CREATED).json({ message: 'Đặt hàng thành công!', success: true });
   },
-
-  // get order by id
   getOrdersByUserId: async (req, res) => {
     const { _id } = req.user;
     // const { userId } = req.params;
 
-    // check userId có trùng nhau hay không
+    // // check userId có trùng nhau hay không
     // if (_id !== userId) {
-    //   return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'No Permission!', success: false });
+    //   return res
+    //     .status(HTTP_STATUS.FORBIDDEN)
+    //     .json({ message: 'Bạn không có quyền xem đơn hàng này!', success: false });
     // }
 
     // lấy danh sách đơn hàng theo userId
     const orders = await orderService.getOrdersByUserId(_id);
 
     if (!orders) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Order not found!', success: false });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Không tìm thấy đơn hàng!', success: false });
     }
 
-    return res.status(HTTP_STATUS.OK).json({ message: 'Get order success!', success: true, data: orders });
+    return res
+      .status(HTTP_STATUS.OK)
+      .json({ message: 'Lấy danh sách đơn hàng thành công!', success: true, data: orders });
   },
 
   // get all orders
@@ -138,26 +147,18 @@ export const orderController = {
       status,
     });
 
+    // startDate: 2024-07-16T14:36:52.972+00:00
+    // endDate: 2024-07-16T14:36:52.972+00:00
+    // datediff = endDate - startDate => dayjs(endDate).diff(dayjs(startDate), 'day')
+    // tiềm kieems trong db createdAt >= startDate && createdAt <= endDate
+
     const orders = await orderService.getAllOrders(query, option);
 
     if (!orders) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Order not found!', success: false });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Không tìm thấy đơn hàng!', success: false });
     }
 
-    return res.status(HTTP_STATUS.OK).json({ message: 'Get order success!', success: true, ...orders });
-  },
-
-  // get order by email
-  getOrderByEmail: async (req, res) => {
-    const { email } = req.query;
-
-    const order = await orderService.getOrderByEmail(email);
-
-    if (!order) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Order not found!', success: false });
-    }
-
-    return res.status(HTTP_STATUS.OK).json({ message: 'Get order success!', success: true, ...order });
+    return res.status(HTTP_STATUS.OK).json({ message: 'Lấy danh sách đơn hàng thành công!', success: true, ...orders });
   },
 
   // check status
@@ -188,28 +189,33 @@ export const orderController = {
     }
   },
 
-  // update status order
+  // cập nhật đơn hàng trạng thái đơn hàng
   updateOrder: async (req, res) => {
     const { _id } = req.user;
+    console.log('🚀 ~ updateOrder: ~ req.user:', req.user);
     const { orderId } = req.params;
     const { status, message } = req.body;
 
-    // lấy ra thông tin đơn hàng từ orderId
+    // lấy ra thông tin đơn hàng theo orderId
     const order = await orderService.getOrderById(orderId);
 
-    // check xem có trường assignee ko
+    // check xem có trường assignee không
     if (!order.assignee && order.status === 'pending') {
-      // gán _id của user hiện tại vào trường assignee và cập nhật trạng thái đơn hàng
+      // gán _id của user hiện tại vào trường assignee và cập nhật trạng thái đơn hàng => confirmed
       const updateOrder = await orderService.updateOrder({ _id: orderId }, { assignee: _id, status });
       if (!updateOrder) {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Update order failed!', success: false });
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Cập nhật đơn hàng thất bại!', success: false });
       }
-      return res.status(HTTP_STATUS.OK).json({ message: 'Update order success!', success: true });
+      return res.status(HTTP_STATUS.OK).json({ message: 'Cập nhật đơn hàng thành công!', success: true });
     }
+
+    // .find/ filter() => array method
 
     // check xem có phải là người được gán đơn hàng không
     if (order.assignee._id.toString() !== _id) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'No permission!', success: false });
+      return res
+        .status(HTTP_STATUS.FORBIDDEN)
+        .json({ message: 'Bạn không có quyền cập nhật đơn hàng này!', success: false });
     }
 
     // check xem trạng thái đơn hàng có hợp lệ không
@@ -218,6 +224,8 @@ export const orderController = {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Trạng thái đơn hàng không hợp lệ!', success: false });
     }
 
+    // trim() => tác dụng xoá các khoảng trắng ở đầu và cuối chuỗi
+    // kiểm tra xem trạng thái đơn hàng có phải là cancelled không và message có giá trị không
     if (status === 'cancelled' && (!message || message.trim() === '')) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Vui lòng nhập lý do hủy đơn hàng!', success: false });
     }
@@ -239,78 +247,74 @@ export const orderController = {
     return res.status(HTTP_STATUS.OK).json({ message: 'Cập nhật đơn hàng thành công!', success: true });
   },
 
-  // get order by day
-  getOrderByDay: async (req, res) => {
-    const { startDate, endDate } = req.query;
-
-    const startDateF = dayjs(startDate).toDate();
-    const endDateF = dayjs(endDate).toDate();
-
-    const order = await orderService.getOrderByDay(startDateF, endDateF);
-
-    if (!order) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Order not found!', success: false });
-    }
-
-    return res.status(HTTP_STATUS.OK).json({ message: 'Get order success!', success: true, ...order });
-  },
-
   // cancel order
   cancelOrder: async (req, res) => {
     const { role } = req.user;
     const { orderId } = req.params;
     const { message, status } = req.body;
+    console.log('🚀 ~ cancelOrder: ~ message:', message);
 
     // lấy ra thông tin đơn hàng theo orderId
     const order = await orderService.getOrderById(orderId);
     // check role xem là admin hay user
-    if (role === 'customer') {
-      // check xem userId có trùng nhau không
-      if (order.userId._id.toString() !== req.user._id) {
-        return res
-          .status(HTTP_STATUS.FORBIDDEN)
-          .json({ message: 'Bạn không có quyền hủy đơn hàng này!', success: false });
+    // check xem userId có trùng nhau không
+    // if (order.userId._id.toString() !== req.user._id) {
+    //   return res
+    //     .status(HTTP_STATUS.FORBIDDEN)
+    //     .json({ message: 'Bạn không có quyền hủy đơn hàng này!', success: false });
+    // }
+
+    // check status === pending
+    if (order.status !== 'pending') {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Không thể hủy đơn hàng!', success: false });
+    }
+
+    // cập nhật trạng thái đơn hàng và lý do hủy đơn hàng
+    if (status !== 'cancelled' || !message || (message && message.trim() === '')) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Vui lòng nhập lý do hủy đơn hàng!', success: false });
+    }
+
+    if (status === 'cancelled' && message.trim() !== '') {
+      const updateOrder = await orderService.updateOrder({ _id: orderId }, { status, reasonCancel: message });
+      if (!updateOrder) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Hủy đơn hàng thất bại!', success: false });
       }
 
-      // check status === pending
-      if (order.status !== 'pending') {
-        return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Không thể hủy đơn hàng!', success: false });
-      }
-
-      // cập nhật trạng thái đơn hàng và lý do hủy đơn hàng
-      if (status !== 'cancelled' || !message || (message && message.trim() === '')) {
-        return res
-          .status(HTTP_STATUS.BAD_REQUEST)
-          .json({ message: 'Vui lòng nhập lý do hủy đơn hàng!', success: false });
-      }
-
-      if (status === 'cancelled' && message.trim() !== '') {
-        const updateOrder = await orderService.updateOrder({ _id: orderId }, { status, reasonCancel: message });
-        if (!updateOrder) {
-          return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Hủy đơn hàng thất bại!', success: false });
-        }
-
-        // cập nhật lại số lượng sản phẩm trong kho
-        order.products.forEach(async (product) => {
-          const productInfo = await productService.getProductById(product.productId);
-          const productSize = productInfo.sizes.find(
-            (size) => size.size === product.size && size.color === product.color,
-          );
-          if (productSize) {
-            const newQuantity = productSize.quantity + product.quantity;
-            // cập nhật lại số lượng sản phẩm
-            const result = await productService.updateQuantityProduct(product.productId, productSize._id, newQuantity);
-            if (!result) {
-              return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Huỷ đơn hàng thất bại!', success: false });
-            }
+      // cập nhật lại số lượng sản phẩm trong kho
+      order.products.forEach(async (product) => {
+        const productInfo = await productService.getProductById(product.productId);
+        const productSize = productInfo.sizes.find(
+          (size) => size.size === product.size && size.color === product.color,
+        );
+        if (productSize) {
+          const newQuantity = productSize.quantity + product.quantity;
+          // cập nhật lại số lượng sản phẩm
+          const result = await productService.updateQuantityProduct(product.productId, productSize._id, newQuantity);
+          if (!result) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Huỷ đơn hàng thất bại!', success: false });
           }
-        });
+        }
+      });
 
-        return res.status(HTTP_STATUS.OK).json({ message: 'Hủy đơn hàng thành công!', success: true });
-      }
-    } else {
-      // check role là customer
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Khong phai customers', success: false });
+      return res.status(HTTP_STATUS.OK).json({ message: 'Hủy đơn hàng thành công!', success: true });
     }
   },
 };
+
+// date: dayjs, moment, date-fns
+// tìm kiếm đơn hàng dựa vào startDate, endDate & email
+// dd/mm/yy => 12/06/23
+// dd/mm/yyyy => 12/06/2023
+// yyyy/mm/dd => 2023/06/12
+// mm/dd/yyyy => 06/12/2023
+
+// người dùng gửi lên startDate, endDate: 12/06/2023 -> 15/06/2023, 06/12/2023
+// const startDate = dayjs('12/06/2023).toDate()
+// const endDate = dayjs('15/06/2023).toDate()
+// mongoose => $gte: startDate, $lte: endDate
+// const newOrder = await Order.find({
+//  createdAt: {
+//    $gte: startDate,
+//   $lte: endDate
+// }
+// })

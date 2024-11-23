@@ -1,9 +1,5 @@
 import axios, { AxiosInstance } from "axios";
-import {
-  getAccessTokenFromLS,
-  removeAccessTokenFromLS,
-  setAccessTokenToLS,
-} from "@/utils/auth.util";
+import { getAccessTokenFromLS, setAccessTokenToLS } from "@/utils/auth.util";
 
 import { AuthResponse } from "@/types/auth.type";
 import path from "./path.config";
@@ -56,14 +52,12 @@ class Http {
         console.log("🚀 ~ Http ~ constructor ~ message:", message);
 
         if (`/${url}` === path.cart && message === "Cart not found") {
-          console.log("1");
           return Promise.reject(error);
         } else {
-          console.log("2");
           const message = error.response.data.message || error.message;
           toast.error(message);
-          this.accessToken = "";
-          removeAccessTokenFromLS();
+          // this.accessToken = "";
+          // removeAccessTokenFromLS();
         }
         // if (!error.response.data.success) {
         // 	const message = error.response.data.message || error.message;
@@ -80,3 +74,11 @@ class Http {
 const http = new Http().instance;
 
 export default http;
+
+/*
+các dạng function
+1. function declaration => function name() {}
+2. function expression => const name = function() {}
+3. arrow function => const name = () => {}
+4. IIFE => (function() {})()
+*/

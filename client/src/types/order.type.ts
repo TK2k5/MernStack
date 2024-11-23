@@ -66,3 +66,8 @@ export type TOrderGroupByStatus = {
   status: TOrderStatus;
   children: TOrder[];
 };
+
+export type TCancelOrder = {
+  status: "cancelled";
+  message: string;
+};

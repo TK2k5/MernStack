@@ -6,6 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { TCancelOrder, TOrderGroupByStatus } from "@/types/order.type";
 import {
   Table,
   TableBody,
@@ -14,7 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import _, { omit } from "lodash";
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,20 +25,32 @@ import DialogViewOrder from "./components/dialog-view-order";
 import { Loader } from "lucide-react";
 import { PopoverClose } from "@radix-ui/react-popover";
 import { Separator } from "@/components/ui/separator";
-import { TOrderGroupByStatus } from "@/types/order.type";
 import { Textarea } from "@/components/ui/textarea";
-import _ from "lodash";
 import { formatCurrency } from "@/utils/format-currency.util";
 import { formatDate } from "@/utils/format-date";
 import { orderApi } from "@/api/order.api";
-import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const OrderStatus = () => {
   const [orderGroupByStatus, setOrderGroupByStatus] = useState<
     TOrderGroupByStatus[]
   >([]);
-  console.log("🚀 ~ OrderStatus ~ orderGroupByStatus:", orderGroupByStatus);
+  const [messageCancelOrder, setMessageCancelOrder] = useState<string>("");
+  const queryClient = useQueryClient();
 
+  // huỷ đơn hàng
+  const cancelOrderMutation = useMutation({
+    mutationKey: ["cancel-order"],
+    mutationFn: (body: TCancelOrder & { _id: string }) =>
+      orderApi.cancelOrder(body._id, omit(body, "_id")),
+    onSuccess: (data) => {
+      console.log("🚀 ~ OrderStatus ~ data:", data);
+      toast.success("Huỷ đơn hàng thành công");
+      queryClient.invalidateQueries({ queryKey: ["order-info"] });
+    },
+  });
+
+  // lấy danh sách đơn hàng
   const { data, isLoading } = useQuery({
     queryKey: ["order-info"],
     queryFn: () => orderApi.getOrder(),
@@ -61,6 +76,15 @@ const OrderStatus = () => {
       </div>
     );
   }
+
+  const handleCancelOrder = (orderId: string) => {
+    console.log(messageCancelOrder);
+    cancelOrderMutation.mutate({
+      _id: orderId,
+      message: messageCancelOrder,
+      status: "cancelled",
+    });
+  };
 
   return (
     <div className="container p-4 mx-auto">
@@ -151,10 +175,23 @@ const OrderStatus = () => {
                                         Lý do huỷ đơn
                                       </p>
 
-                                      <Textarea placeholder="Lý do huỷ đơn"></Textarea>
+                                      <Textarea
+                                        placeholder="Lý do huỷ đơn"
+                                        value={messageCancelOrder}
+                                        onChange={(e) =>
+                                          setMessageCancelOrder(e.target.value)
+                                        }
+                                      ></Textarea>
 
                                       <div className="flex justify-end w-full">
-                                        <Button className="w-full">Gửi</Button>
+                                        <Button
+                                          className="w-full"
+                                          onClick={() =>
+                                            handleCancelOrder(order._id)
+                                          }
+                                        >
+                                          Gửi
+                                        </Button>
                                       </div>
                                     </DialogContent>
                                   </Dialog>
