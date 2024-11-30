@@ -55,7 +55,7 @@ const OrderInfo = ({ order: orderInfo }: { order: TOrder }) => {
   const { color, title } = getStatusColor(orderInfo.status);
   const order = orderInfo;
   return (
-    <Card key={order._id} className="w-full">
+    <Card key={order._id} className="w-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
         <CardTitle className="text-sm font-medium">
           Đơn hàng #{order._id}
@@ -72,25 +72,27 @@ const OrderInfo = ({ order: orderInfo }: { order: TOrder }) => {
         </p>
       </CardContent>
 
-      <Separator />
+      <div className="mt-auto">
+        <Separator />
 
-      <CardFooter className="flex justify-between">
-        <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-          <Package className="size-4" />
-          <span className="">{order.products.length} sản phẩm</span>
-        </div>
+        <CardFooter className="flex justify-between mt-2 pb-2">
+          <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+            <Package className="size-4" />
+            <span className="">{order.products.length} sản phẩm</span>
+          </div>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant={"ghost"} size={"sm"}>
-              <Eye className="mr-2 size-4" />
-              Xem chi tiết
-            </Button>
-          </DialogTrigger>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant={"ghost"} size={"sm"}>
+                <Eye className="mr-2 size-4" />
+                Xem chi tiết
+              </Button>
+            </DialogTrigger>
 
-          <DialogViewOrder order={order} />
-        </Dialog>
-      </CardFooter>
+            <DialogViewOrder order={order} />
+          </Dialog>
+        </CardFooter>
+      </div>
     </Card>
   );
 };

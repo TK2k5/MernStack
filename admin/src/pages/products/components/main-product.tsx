@@ -89,6 +89,7 @@ const MainProduct = ({ products, isLoading, getData, totalDocs }: MainProductPro
           type: 'checkbox',
           ...rowSelection
         }}
+        scroll={{ x: 1500 }}
         columns={columns}
         pagination={{
           current: Number(_page) || 1,
