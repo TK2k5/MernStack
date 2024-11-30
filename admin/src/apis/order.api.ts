@@ -1,4 +1,4 @@
-import { TOrder, TOrderStatus } from '@/types/order.type'
+import { TCancelOrder, TOrder, TOrderStatus } from '@/types/order.type'
 import { TQueryParams, TResponse } from '@/types/common.type'
 
 import api from './base-url.api'
@@ -21,6 +21,11 @@ export const orderApi = {
         Authorization: `Bearer ${token}`
       }
     })
+    return response.data
+  },
+  // cancel order
+  cancelOrder: async (orderId: string, body: TCancelOrder) => {
+    const response = await api.patch<{ message: string; success: boolean }>(`/order/cancel/${orderId}`, body)
     return response.data
   }
 }

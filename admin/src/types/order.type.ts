@@ -33,3 +33,8 @@ export type TOrder = {
   createdAt: string
   updatedAt: string
 }
+
+export type TCancelOrder = {
+  status: 'cancelled'
+  message: string
+}

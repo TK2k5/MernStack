@@ -1,18 +1,31 @@
 import { Button, Space, Table, Tag, Tooltip, message } from 'antd'
-import { CheckOutlined, DeleteOutlined, FileDoneOutlined } from '@ant-design/icons'
+import { CheckOutlined, FileDoneOutlined } from '@ant-design/icons'
 import { TOrder, TOrderStatus } from '@/types/order.type'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { ColumnType } from 'antd/es/table'
+import ModalOrderCancel from './modal-order-cancel'
+import ModalOrderDetail from './modal-order-detail'
 import { TProduct } from '@/types/product.type'
 import { formatCurrency } from '@/utils/format-currency'
 import { formatDate } from '@/utils/format-date'
 import { orderApi } from '@/apis/order.api'
 import { useAuth } from '@/contexts/auth-context'
 import { useQueryParams } from '@/hooks/useQueryParams'
+import { useState } from 'react'
 
 interface TableOrderProps {
   data?: TOrder[]
+}
+
+interface IModalOrderDetail {
+  isVisible: boolean
+  order: TOrder | null
+}
+
+interface IModalOrderCancel {
+  isVisible: boolean
+  idOrder: string | null
 }
 
 const TableOrder = ({ data }: TableOrderProps) => {
@@ -88,30 +101,54 @@ const TableOrder = ({ data }: TableOrderProps) => {
         return (
           <Space>
             <Tooltip title='Xem đơn hàng'>
-              <Button type='dashed' className='border-solid' icon={<FileDoneOutlined />}></Button>
+              <Button
+                type='dashed'
+                className='border-solid'
+                icon={<FileDoneOutlined />}
+                onClick={() => setModalOrderDetail({ isVisible: true, order })}
+              ></Button>
             </Tooltip>
             {order.status !== 'completed' && order.status !== 'cancelled' && (
               <Tooltip title={handleRenderData()?.title}>
                 <Button icon={<CheckOutlined />} onClick={() => handleRenderData()?.onClick(order)}></Button>
               </Tooltip>
             )}
-            {order.status === 'pending' && (
+            {/* {order.status === 'pending' && (
               <Tooltip title='Huỷ đơn hàng'>
-                <Button danger icon={<DeleteOutlined />}></Button>
+                <Popconfirm
+                  title='Bạn có chắc chắn muốn huỷ đơn hàng này không?'
+                  onConfirm={() =>
+                    setModalOrderCancel({
+                      isVisible: true,
+                      idOrder: order._id
+                    })
+                  }
+                >
+                  <Button danger icon={<DeleteOutlined />}></Button>
+                </Popconfirm>
               </Tooltip>
-            )}
+            )} */}
           </Space>
         )
       }
     }
   ]
 
+  const [modalOrderDetail, setModalOrderDetail] = useState<IModalOrderDetail>({
+    isVisible: false,
+    order: null
+  })
+
+  const [modalOrderCancel, setModalOrderCancel] = useState<IModalOrderCancel>({
+    isVisible: false,
+    idOrder: null
+  })
+
   const updateOrderStatusMutation = useMutation({
     mutationKey: ['update-order-status'],
     mutationFn: (body: { status: TOrderStatus; _id: string }) =>
       orderApi.updateOrderStatus(body._id, { status: body.status }, accessToken),
-    onSuccess: (data) => {
-      console.log('🚀 ~ handleRenderData ~ data:', data)
+    onSuccess: () => {
       message.success('Xác nhận đơn hàng thành công!')
       queryClient.invalidateQueries({ queryKey: ['orders', params] })
     }
@@ -148,7 +185,23 @@ const TableOrder = ({ data }: TableOrderProps) => {
     }
   }
 
-  return <Table columns={columns} dataSource={data} scroll={{ x: 1500 }} />
+  return (
+    <>
+      <Table columns={columns} dataSource={data} scroll={{ x: 1500 }} />
+      <ModalOrderDetail
+        isVisible={modalOrderDetail.isVisible}
+        order={modalOrderDetail.order}
+        onClose={() => setModalOrderDetail({ isVisible: false, order: null })}
+      />
+      {modalOrderCancel.idOrder && (
+        <ModalOrderCancel
+          isVisible={modalOrderCancel.isVisible}
+          idOrder={modalOrderCancel.idOrder}
+          onClose={() => setModalOrderCancel({ isVisible: false, idOrder: null })}
+        />
+      )}
+    </>
+  )
 }
 
 // áo thun nam dài tay
